@@ -2,9 +2,20 @@
 
 import { useState, useRef, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import StatusDialog from "../components/StatusDialog";
 import Image from "next/image";
 import { onboard } from "../lib/onboard";
 import { firstValueFrom } from "rxjs";
+import {
+  Camera,
+  CheckCircle,
+  X,
+  Loader2,
+  Search,
+  AlertTriangle,
+  CheckCircle2,
+  Trash2
+} from "lucide-react";
 
 interface ValidationResult {
   success: boolean;
@@ -28,6 +39,13 @@ export default function ValidatePage() {
   const [previousStakedBalance, setPreviousStakedBalance] = useState<string>("0");
   const [wasSlashed, setWasSlashed] = useState(false);
   const [hadInitialAccess, setHadInitialAccess] = useState(false);
+  const [hasValidated, setHasValidated] = useState(false);
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error";
+  }>({ isOpen: false, title: "", message: "", type: "success" });
 
   // Check wallet connection and staked balance
   useEffect(() => {
@@ -157,6 +175,9 @@ export default function ValidatePage() {
       const data: ValidationResult = await response.json();
       setResult(data);
       
+      // Mark that user has validated in this session
+      setHasValidated(true);
+      
       // If validation failed (slashed), mark as slashed
       if (!data.success && data.confidence < 50) {
         setWasSlashed(true);
@@ -174,6 +195,16 @@ export default function ValidatePage() {
       const userData = await userDataResponse.json();
       setStakedBalance(userData.stakedBalance || "0");
       setIsValidated(userData.isValidated || false);
+      
+      // Show dialog to stake again after a short delay
+      setTimeout(() => {
+        setDialogState({
+          isOpen: true,
+          title: "Validation Complete",
+          message: "You can only validate once per stake. Please stake again on the homepage to validate more work.",
+          type: data.success && data.confidence >= 50 ? "success" : "error",
+        });
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -226,9 +257,21 @@ export default function ValidatePage() {
       setStakedBalance(userData.stakedBalance || "0");
       setIsValidated(userData.isValidated || false);
 
-      alert("Successfully claimed all rewards and unstaked tokens!");
+      setDialogState({
+        isOpen: true,
+        title: "Success!",
+        message: "Successfully claimed all rewards and unstaked tokens!",
+        type: "success",
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to claim rewards");
+      const errorMessage = err instanceof Error ? err.message : "Failed to claim rewards";
+      setDialogState({
+        isOpen: true,
+        title: "Transaction Failed",
+        message: errorMessage,
+        type: "error",
+      });
+      setError(errorMessage);
     } finally {
       setIsClaiming(false);
     }
@@ -268,6 +311,15 @@ export default function ValidatePage() {
 
       <Navbar />
 
+      {/* Status Dialog */}
+      <StatusDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState({ ...dialogState, isOpen: false })}
+        title={dialogState.title}
+        message={dialogState.message}
+        type={dialogState.type}
+      />
+
       <main className="relative z-10 flex items-center justify-center min-h-screen pt-20 pb-10">
         <div className="w-[90%] max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -299,8 +351,15 @@ export default function ValidatePage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/60 text-sm">Status:</span>
-                    <span className={`font-bold ${isValidated ? "text-green-400" : "text-yellow-400"}`}>
-                      {isValidated ? "✓ Validated" : "Pending Validation"}
+                    <span className={`font-bold flex items-center gap-1.5 ${isValidated ? "text-green-400" : "text-yellow-400"}`}>
+                      {isValidated ? (
+                        <>
+                          <CheckCircle size={16} />
+                          Validated
+                        </>
+                      ) : (
+                        "Pending Validation"
+                      )}
                     </span>
                   </div>
                   {isValidated && parseFloat(stakedBalance) > 0 && (
@@ -344,7 +403,11 @@ export default function ValidatePage() {
 
                 {!preview ? (
                   <>
-                    <div className="text-4xl mb-4">📸</div>
+                    <div className="mb-4 flex justify-center">
+                      <div className="p-4 bg-white/10 rounded-full">
+                        <Camera className="text-white" size={40} />
+                      </div>
+                    </div>
                     <p className="text-white font-semibold mb-2">
                       Click to upload or drag and drop
                     </p>
@@ -354,7 +417,11 @@ export default function ValidatePage() {
                   </>
                 ) : (
                   <>
-                    <div className="text-4xl mb-4">✓</div>
+                    <div className="mb-4 flex justify-center">
+                      <div className="p-4 bg-[#51bb0b]/20 rounded-full">
+                        <CheckCircle className="text-[#51bb0b]" size={40} />
+                      </div>
+                    </div>
                     <p className="text-[#51bb0b] font-semibold">
                       Image selected
                     </p>
@@ -369,14 +436,16 @@ export default function ValidatePage() {
               <div className="flex gap-4">
                 <button
                   onClick={handleValidate}
-                  disabled={!selectedImage || isLoading}
+                  disabled={!selectedImage || isLoading || hasValidated}
                   className="flex-1 bg-[#51bb0b] hover:bg-[#45a009] disabled:bg-white/20 text-black hover:text-black disabled:text-white/50 font-bold py-4 rounded-xl transition-all duration-300 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#51bb0b]/50"
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <span className="animate-spin">⏳</span>
+                      <Loader2 className="animate-spin" size={20} />
                       Validating...
                     </span>
+                  ) : hasValidated ? (
+                    "Already Validated - Stake Again"
                   ) : (
                     "Validate Image"
                   )}
@@ -432,13 +501,17 @@ export default function ValidatePage() {
                   {/* Success Status */}
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl ${
+                      className={`w-20 h-20 rounded-full flex items-center justify-center ${
                         result.success
                           ? "bg-[#51bb0b]/20 border-2 border-[#51bb0b]"
                           : "bg-red-500/20 border-2 border-red-500"
                       }`}
                     >
-                      {result.success ? "✓" : "✗"}
+                      {result.success ? (
+                        <CheckCircle className="text-[#51bb0b]" size={40} />
+                      ) : (
+                        <X className="text-red-500" size={40} />
+                      )}
                     </div>
                     <div>
                       <p className="text-white/60 text-sm font-medium">
@@ -498,7 +571,9 @@ export default function ValidatePage() {
                   {!result.success && result.confidence < 50 && (
                     <div className="bg-red-900/30 border-2 border-red-500 rounded-xl p-6 space-y-3">
                       <div className="flex items-start gap-3">
-                        <span className="text-3xl">⚠️</span>
+                        <div className="p-2 bg-red-500/20 rounded-full flex-shrink-0">
+                          <AlertTriangle className="text-red-400" size={32} />
+                        </div>
                         <div className="flex-1">
                           <h4 className="text-red-400 font-bold text-lg mb-2">
                             PROOF INVALID - STAKE SLASHED
@@ -520,7 +595,9 @@ export default function ValidatePage() {
                   {result.success && result.confidence >= 50 && (
                     <div className="bg-green-900/30 border-2 border-[#51bb0b] rounded-xl p-6 space-y-3">
                       <div className="flex items-start gap-3">
-                        <span className="text-3xl">✅</span>
+                        <div className="p-2 bg-[#51bb0b]/20 rounded-full flex-shrink-0">
+                          <CheckCircle2 className="text-[#51bb0b]" size={32} />
+                        </div>
                         <div className="flex-1">
                           <h4 className="text-[#51bb0b] font-bold text-lg mb-2">
                             VALIDATION SUCCESSFUL - REWARD ADDED
@@ -558,7 +635,11 @@ export default function ValidatePage() {
 
               {!result && !preview && (
                 <div className="glass-navbar rounded-2xl p-12 text-center space-y-4 border border-white/20">
-                  <p className="text-5xl">🔍</p>
+                  <div className="flex justify-center">
+                    <div className="p-6 bg-white/10 rounded-full">
+                      <Search className="text-white/60" size={56} />
+                    </div>
+                  </div>
                   <p className="text-white/60 text-lg">
                     Upload an image to get started
                   </p>

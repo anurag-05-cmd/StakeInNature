@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import VideoBackground from "./components/VideoBackground";
+import Footer from "./components/Footer";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -34,6 +35,7 @@ export default function RootLayout({
         <div className="content-wrapper">
           {children}
         </div>
+        <Footer />
       </body>
     </html>
   );

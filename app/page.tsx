@@ -292,29 +292,29 @@ export default function Home() {
       
       <Navbar />
       
-      <main className="relative z-10 flex items-center justify-center min-h-screen pt-20">
-        <div className="w-[90%] max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <main className="relative z-10 flex items-center justify-center min-h-screen pt-24 md:pt-20 px-4">
+        <div className="w-full md:w-[90%] max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-16 items-center">
             {/* Left side - Content */}
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4 md:gap-6">
               {/* Main Heading with refined styling */}
-              <div className="space-y-2">
-                <h1 className="text-[5rem] lg:text-[6rem] font-black leading-[0.9] tracking-tight">
+              <div className="space-y-1 md:space-y-2">
+                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6rem] font-black leading-[0.9] tracking-tight">
                   <span className="block text-white hero-gradient-text">STAKE</span>
                   <span className="block text-[#51bb0b] hero-gradient-text-green">IN NATURE</span>
                 </h1>
               </div>
               
               {/* Subtitle with subtle styling */}
-              <h2 className="text-xl lg:text-2xl font-medium text-white/90 tracking-wide max-w-md">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-medium text-white/90 tracking-wide max-w-md">
                 Proof of Honesty for a Greener Economy
               </h2>
               
               {/* Divider line */}
-              <div className="w-20 h-1 bg-gradient-to-r from-[#51bb0b] to-transparent rounded-full" />
+              <div className="w-16 md:w-20 h-1 bg-gradient-to-r from-[#51bb0b] to-transparent rounded-full" />
               
               {/* Description with refined typography */}
-              <div className="space-y-3 text-white/80 text-base lg:text-lg leading-relaxed max-w-lg">
+              <div className="space-y-2 md:space-y-3 text-white/80 text-sm sm:text-base lg:text-lg leading-relaxed max-w-lg">
                 <p>
                   <span className="text-white/95">Blockchain-powered</span> incentives that reward honest recycling work.
                 </p>
@@ -336,18 +336,18 @@ export default function Home() {
 
               {/* User Balance Display */}
               {connectedAddress && userData && (
-                <div className="glass-navbar rounded-xl p-4 space-y-2 border border-white/20">
+                <div className="glass-navbar rounded-xl p-3 md:p-4 space-y-2 border border-white/20">
                   <div className="flex justify-between items-center">
-                    <span className="text-white/60 text-sm">Token Balance:</span>
-                    <span className="text-white font-bold">{parseFloat(userData.tokenBalance).toFixed(2)} SIN</span>
+                    <span className="text-white/60 text-xs md:text-sm">Token Balance:</span>
+                    <span className="text-white font-bold text-sm md:text-base">{parseFloat(userData.tokenBalance).toFixed(2)} SIN</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-white/60 text-sm">Staked Balance:</span>
-                    <span className="text-[#51bb0b] font-bold">{parseFloat(userData.stakedBalance).toFixed(2)} SIN</span>
+                    <span className="text-white/60 text-xs md:text-sm">Staked Balance:</span>
+                    <span className="text-[#51bb0b] font-bold text-sm md:text-base">{parseFloat(userData.stakedBalance).toFixed(2)} SIN</span>
                   </div>
                   {userData.isValidated && (
                     <div className="flex justify-between items-center">
-                      <span className="text-white/60 text-sm">Status:</span>
+                      <span className="text-white/60 text-xs md:text-sm">Status:</span>
                       <span className="text-green-400 font-bold flex items-center gap-1">
                         ✓ Validated
                       </span>
@@ -359,7 +359,7 @@ export default function Home() {
               {/* Claim Status Message */}
               {claimStatus.message && (
                 <div
-                  className={`p-3 rounded-lg ${
+                  className={`p-3 rounded-lg text-sm ${
                     claimStatus.success
                       ? "bg-green-500/20 border border-green-500/50 text-green-300"
                       : "bg-red-500/20 border border-red-500/50 text-red-300"
@@ -371,8 +371,8 @@ export default function Home() {
 
               {/* Stake Input (only show if not yet staked minimum) */}
               {connectedAddress && userData && parseFloat(userData.stakedBalance) < 900 && (
-                <div className="glass-navbar rounded-xl p-4 space-y-3 border border-white/20">
-                  <label className="text-white/80 text-sm font-medium">
+                <div className="glass-navbar rounded-xl p-3 md:p-4 space-y-3 border border-white/20">
+                  <label className="text-white/80 text-xs md:text-sm font-medium">
                     Amount to Stake (minimum 900 SIN):
                   </label>
                   <input
@@ -381,14 +381,14 @@ export default function Home() {
                     onChange={(e) => setStakeAmount(e.target.value)}
                     min="900"
                     step="1"
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#51bb0b]"
+                    className="w-full px-3 md:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm md:text-base placeholder-white/50 focus:outline-none focus:border-[#51bb0b]"
                     placeholder="900"
                   />
                 </div>
               )}
               
               {/* CTA Buttons with refined styling */}
-              <div className="flex gap-4 mt-6">
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-4 md:mt-6">
                 {!canAccessValidator ? (
                   <button
                     onClick={handleStake}
@@ -398,7 +398,7 @@ export default function Home() {
                       !userData ||
                       parseFloat(userData.tokenBalance) < 900
                     }
-                    className={`group relative px-8 py-4 font-semibold rounded-full overflow-hidden transition-all duration-300 ${
+                    className={`group relative px-6 md:px-8 py-3 md:py-4 font-semibold rounded-full overflow-hidden transition-all duration-300 ${
                       isStaking || !connectedAddress || !userData || parseFloat(userData.tokenBalance) < 900
                         ? "bg-gray-500/50 text-white/50 cursor-not-allowed"
                         : "bg-[#51bb0b] text-white hover:shadow-[0_0_30px_rgba(81,187,11,0.5)] hover:scale-[1.02]"
@@ -414,7 +414,7 @@ export default function Home() {
                 ) : (
                   <a
                     href="/validate"
-                    className="group relative px-8 py-4 bg-[#51bb0b] text-white font-semibold rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(81,187,11,0.5)] hover:scale-[1.02]"
+                    className="group relative px-6 md:px-8 py-3 md:py-4 bg-[#51bb0b] text-white font-semibold rounded-full overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(81,187,11,0.5)] hover:scale-[1.02] text-center"
                   >
                     <span className="relative z-10 uppercase tracking-wider text-sm">Validate</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-[#45a009] to-[#51bb0b] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -424,7 +424,7 @@ export default function Home() {
                 <button
                   onClick={handleClaimSIN}
                   disabled={isClaiming || hasAlreadyClaimed}
-                  className={`group relative px-8 py-4 font-semibold rounded-full border overflow-hidden transition-all duration-300 ${
+                  className={`group relative px-6 md:px-8 py-3 md:py-4 font-semibold rounded-full border overflow-hidden transition-all duration-300 ${
                     hasAlreadyClaimed
                       ? "bg-gray-500/20 text-white/50 border-white/10 cursor-not-allowed"
                       : isClaiming
@@ -446,12 +446,12 @@ export default function Home() {
             </div>
 
             {/* Right side - Logo with sophisticated effects */}
-            <div className="flex justify-center items-center lg:justify-end">
+            <div className="flex justify-center items-center lg:justify-end mt-8 lg:mt-0">
               <div className="relative">
                 {/* Glow effect behind logo */}
                 <div className="absolute inset-0 bg-[#51bb0b]/20 blur-[80px] rounded-full scale-110" />
                 
-                <div className="relative w-[400px] h-[400px] lg:w-[500px] lg:h-[500px]">
+                <div className="relative w-[280px] h-[280px] sm:w-[350px] sm:h-[350px] md:w-[400px] md:h-[400px] lg:w-[500px] lg:h-[500px]">
                   <Image
                     src="/logo-3d.png"
                     alt="Stake In Nature 3D Logo"

@@ -53,11 +53,33 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glass-navbar {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 1);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 768px) {
+  .glass-navbar {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+}
+
+.glass-footer {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 -4px 20px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 768px) {
+  .glass-footer {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
 }
 
 .nav-link {
@@ -145,4 +167,20 @@ h1, h2, h3, h4, h5, h6 {
   50% {
     box-shadow: 0 0 40px rgba(81, 187, 11, 0.6);
   }
+}
+
+/* Dialog scale-in animation */
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
 }

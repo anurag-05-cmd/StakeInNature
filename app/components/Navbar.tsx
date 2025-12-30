@@ -12,6 +12,7 @@ export default function Navbar() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [stakedBalance, setStakedBalance] = useState<string>("0");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const hasSetupWallet = useRef(false);
   const isManualConnect = useRef(false);
 
@@ -104,28 +105,51 @@ export default function Navbar() {
     { label: "Home", href: "/", disabled: false },
     { label: "SIN Validator", href: "/validate", disabled: !hasMinimumStake },
     { label: "Faucet", href: "/faucet", disabled: false },
-    { label: "Rewards", href: "#", disabled: false },
+    { label: "Rewards", href: "/rewards", disabled: false },
   ];
 
   return (
-    <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-6xl">
-      <div className="glass-navbar flex items-center justify-between px-8 py-4 rounded-full">
+    <nav className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] md:w-[90%] max-w-6xl">
+      <div className="glass-navbar flex items-center justify-between px-4 md:px-8 py-3 md:py-4 rounded-full">
         {/* Left side - Logo and brand name */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <Image
             src="/logo-black.png"
             alt="Stake In Nature Logo"
-            width={40}
-            height={40}
-            className="object-contain"
+            width={32}
+            height={32}
+            className="object-contain md:w-10 md:h-10"
           />
-          <span className="text-white font-bold text-xl whitespace-nowrap tracking-tight">
+          <span className="text-white font-bold text-base md:text-xl whitespace-nowrap tracking-tight">
             Stake In Nature
           </span>
         </div>
 
-        {/* Center - Navigation links */}
-        <div className="flex items-center gap-8">
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="md:hidden text-white p-2 hover:text-[#51bb0b] transition-colors"
+          aria-label="Toggle menu"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            {isMobileMenuOpen ? (
+              <path d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+
+        {/* Desktop Navigation - Center links */}
+        <div className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
             <a
               key={link.label}
@@ -150,8 +174,8 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right side - Connect Wallet button / Wallet dropdown */}
-        <div className="relative">
+        {/* Desktop - Right side Connect Wallet button */}
+        <div className="hidden md:block relative">
           {!connectedAddress ? (
             <button
               onClick={handleConnectWallet}
@@ -188,6 +212,73 @@ export default function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden mt-2 glass-navbar rounded-3xl overflow-hidden">
+          <div className="flex flex-col p-4 space-y-2">
+            {/* Mobile Navigation Links */}
+            {navLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.disabled ? "#" : link.href}
+                onClick={(e) => {
+                  if (link.disabled) {
+                    e.preventDefault();
+                  } else {
+                    setActiveLink(link.label);
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className={`px-4 py-3 rounded-xl font-medium text-sm tracking-wide transition-all duration-200 ${
+                  link.disabled
+                    ? "text-white/30 cursor-not-allowed"
+                    : "text-white hover:bg-white/10 hover:text-[#51bb0b]"
+                } ${
+                  activeLink === link.label && !link.disabled
+                    ? "bg-white/10 text-[#51bb0b]"
+                    : ""
+                }`}
+              >
+                {link.label}
+              </a>
+            ))}
+            
+            {/* Mobile Connect Wallet Button */}
+            <div className="pt-2 border-t border-white/10">
+              {!connectedAddress ? (
+                <button
+                  onClick={() => {
+                    handleConnectWallet();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  disabled={isConnecting}
+                  className="w-full bg-white text-[#51bb0b] font-semibold text-sm tracking-wide px-6 py-3 rounded-xl transition-all duration-300 hover:bg-[#51bb0b] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isConnecting ? "Connecting..." : "Connect Wallet"}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="px-4 py-3 bg-white/10 rounded-xl text-white text-sm font-semibold flex items-center gap-2">
+                    <span className="w-2 h-2 bg-[#51bb0b] rounded-full inline-block"></span>
+                    {displayAddress}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDisconnectWallet();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-red-400 hover:bg-red-500/10 rounded-xl transition-colors duration-200 font-semibold text-sm flex items-center gap-2"
+                  >
+                    <span>🔌</span> Disconnect Wallet
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
