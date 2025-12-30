@@ -98,18 +98,18 @@ export default function Navbar() {
         const walletLabel = currentWallets[0].label;
         await onboard.disconnectWallet({ label: walletLabel });
         
-        // Force state update
-        setConnectedAddress(null);
-        setShowDropdown(false);
-        
         // Log for debugging
         console.log(`Wallet ${walletLabel} disconnected successfully`);
       }
+      
+      // Clear all localStorage and reload
+      localStorage.clear();
+      window.location.reload();
     } catch (error) {
       console.error("Failed to disconnect wallet:", error);
-      // Still reset UI even if there's an error
-      setConnectedAddress(null);
-      setShowDropdown(false);
+      // Still clear localStorage and reload even if there's an error
+      localStorage.clear();
+      window.location.reload();
     }
   };
 

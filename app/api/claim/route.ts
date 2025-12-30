@@ -52,9 +52,10 @@ export async function POST(request: NextRequest) {
     const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, adminWallet);
 
-    // Check if user already has tokens (to prevent multiple claims)
+    // Check if user already has >= 900 tokens (to prevent multiple claims)
+    // Users with less than 900 SIN can claim 5000 SIN
     const currentBalance = await contract.balanceOf(userAddress);
-    if (currentBalance > BigInt(0)) {
+    if (currentBalance >= ethers.parseEther("900")) {
       return NextResponse.json(
         { error: "You have already claimed SIN tokens", alreadyClaimed: true },
         { status: 400 }

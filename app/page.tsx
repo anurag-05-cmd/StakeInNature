@@ -277,11 +277,12 @@ export default function Home() {
     userData && parseFloat(userData.stakedBalance) >= 900
   );
   
-  // Check if user has already claimed (has any token balance or staked balance)
+  // Check if user has already claimed (has >= 900 SIN in token balance or staked balance)
+  // Users with less than 900 SIN can claim to get 5000 SIN
   const hasAlreadyClaimed = !!(
     userData &&
-    (parseFloat(userData.tokenBalance) > 0 ||
-      parseFloat(userData.stakedBalance) > 0)
+    (parseFloat(userData.tokenBalance) >= 900 ||
+      parseFloat(userData.stakedBalance) >= 900)
   );
 
   return (
