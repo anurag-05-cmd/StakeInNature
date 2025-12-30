@@ -6,7 +6,12 @@ import { useState } from "react";
 export default function Navbar() {
   const [activeLink, setActiveLink] = useState("Home");
 
-  const navLinks = ["Home", "SIN Validator", "Faucet", "Rewards"];
+  const navLinks = [
+    { label: "Home", href: "/" },
+    { label: "SIN Validator", href: "/validate" },
+    { label: "Faucet", href: "#" },
+    { label: "Rewards", href: "#" },
+  ];
 
   return (
     <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-6xl">
@@ -28,15 +33,16 @@ export default function Navbar() {
         {/* Center - Navigation links */}
         <div className="flex items-center gap-8">
           {navLinks.map((link) => (
-            <button
-              key={link}
-              onClick={() => setActiveLink(link)}
+            <a
+              key={link.label}
+              href={link.href}
+              onClick={() => setActiveLink(link.label)}
               className={`nav-link text-white font-medium text-sm tracking-wide transition-colors duration-200 hover:text-[#51bb0b] ${
-                activeLink === link ? "text-[#51bb0b]" : ""
+                activeLink === link.label ? "text-[#51bb0b]" : ""
               }`}
             >
-              {link}
-            </button>
+              {link.label}
+            </a>
           ))}
         </div>
 
