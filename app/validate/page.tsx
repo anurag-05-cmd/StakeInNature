@@ -23,6 +23,11 @@ export default function ValidatePage() {
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [stakedBalance, setStakedBalance] = useState<string>("0");
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [isValidated, setIsValidated] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [previousStakedBalance, setPreviousStakedBalance] = useState<string>("0");
+  const [wasSlashed, setWasSlashed] = useState(false);
+  const [hadInitialAccess, setHadInitialAccess] = useState(false);
 
   // Check wallet connection and staked balance
   useEffect(() => {
@@ -52,26 +57,30 @@ export default function ValidatePage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "getStakedBalance",
+            action: "getUserData",
             userAddress: connectedAddress,
           }),
         });
         const data = await response.json();
         setStakedBalance(data.stakedBalance || "0");
+        setIsValidated(data.isValidated || false);
         setIsCheckingAccess(false);
 
-        // Redirect if doesn't have minimum stake
-        if (parseFloat(data.stakedBalance || "0") < 900) {
+        // Only redirect on initial load if user never had access
+        // Don't redirect if they were slashed during this session
+        if (parseFloat(data.stakedBalance || "0") >= 900) {
+          setHadInitialAccess(true);
+        } else if (!hadInitialAccess && !wasSlashed) {
           window.location.href = "/";
         }
       } catch (error) {
-        console.error("Failed to check staked balance:", error);
+        console.error("Failed to check user data:", error);
         setIsCheckingAccess(false);
       }
     };
 
     checkAccess();
-  }, [connectedAddress]);
+  }, [connectedAddress, hadInitialAccess, wasSlashed]);
 
   // Show loading or redirect if no access
   if (!connectedAddress || isCheckingAccess) {
@@ -88,7 +97,7 @@ export default function ValidatePage() {
     );
   }
 
-  if (parseFloat(stakedBalance) < 900) {
+  if (parseFloat(stakedBalance) < 900 && !hadInitialAccess && !wasSlashed) {
     return null; // Will redirect
   }
 
@@ -119,12 +128,21 @@ export default function ValidatePage() {
       return;
     }
 
+    if (!connectedAddress) {
+      setError("Please connect your wallet");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
+
+    // Store previous staked balance before validation
+    setPreviousStakedBalance(stakedBalance);
 
     try {
       const formData = new FormData();
       formData.append("image", selectedImage);
+      formData.append("userAddress", connectedAddress);
 
       const response = await fetch("/api/validate", {
         method: "POST",
@@ -138,10 +156,81 @@ export default function ValidatePage() {
 
       const data: ValidationResult = await response.json();
       setResult(data);
+      
+      // If validation failed (slashed), mark as slashed
+      if (!data.success && data.confidence < 50) {
+        setWasSlashed(true);
+      }
+      
+      // Refresh user data after validation
+      const userDataResponse = await fetch("/api/contract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "getUserData",
+          userAddress: connectedAddress,
+        }),
+      });
+      const userData = await userDataResponse.json();
+      setStakedBalance(userData.stakedBalance || "0");
+      setIsValidated(userData.isValidated || false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleClaimRewards = async () => {
+    if (!connectedAddress || !isValidated) {
+      setError("You must be validated before claiming rewards");
+      return;
+    }
+
+    setIsClaiming(true);
+    setError("");
+
+    try {
+      const { ethers } = await import("ethers");
+      const wallets = onboard.state.get().wallets;
+      
+      if (!wallets || wallets.length === 0) {
+        throw new Error("No wallet connected");
+      }
+
+      const provider = wallets[0].provider;
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
+
+      // Import contract helper
+      const { unstakeAllTokens } = await import("../lib/contractHelper");
+
+      const tx = await unstakeAllTokens(signer);
+      
+      if (!tx) {
+        throw new Error("Transaction failed");
+      }
+
+      await tx.wait();
+
+      // Refresh user data
+      const userDataResponse = await fetch("/api/contract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "getUserData",
+          userAddress: connectedAddress,
+        }),
+      });
+      const userData = await userDataResponse.json();
+      setStakedBalance(userData.stakedBalance || "0");
+      setIsValidated(userData.isValidated || false);
+
+      alert("Successfully claimed all rewards and unstaked tokens!");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to claim rewards");
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -200,6 +289,31 @@ export default function ValidatePage() {
               </h2>
 
               <div className="w-20 h-1 bg-gradient-to-r from-[#51bb0b] to-transparent rounded-full" />
+
+              {/* User Status Display */}
+              {connectedAddress && (
+                <div className="glass-navbar rounded-xl p-4 space-y-2 border border-white/20">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/60 text-sm">Staked Balance:</span>
+                    <span className="text-[#51bb0b] font-bold">{parseFloat(stakedBalance).toFixed(2)} SIN</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/60 text-sm">Status:</span>
+                    <span className={`font-bold ${isValidated ? "text-green-400" : "text-yellow-400"}`}>
+                      {isValidated ? "✓ Validated" : "Pending Validation"}
+                    </span>
+                  </div>
+                  {isValidated && parseFloat(stakedBalance) > 0 && (
+                    <button
+                      onClick={handleClaimRewards}
+                      disabled={isClaiming}
+                      className="w-full mt-2 bg-gradient-to-r from-[#51bb0b] to-[#45a009] hover:from-[#45a009] hover:to-[#51bb0b] text-white font-bold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isClaiming ? "Claiming..." : "Claim Rewards & Unstake All"}
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-3 text-white/80 text-base lg:text-lg leading-relaxed max-w-lg">
                 <p>
@@ -379,6 +493,46 @@ export default function ValidatePage() {
                       {result.reason}
                     </p>
                   </div>
+
+                  {/* Slashing Warning - Only show if confidence < 50% */}
+                  {!result.success && result.confidence < 50 && (
+                    <div className="bg-red-900/30 border-2 border-red-500 rounded-xl p-6 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <span className="text-3xl">⚠️</span>
+                        <div className="flex-1">
+                          <h4 className="text-red-400 font-bold text-lg mb-2">
+                            PROOF INVALID - STAKE SLASHED
+                          </h4>
+                          <p className="text-red-200 text-sm leading-relaxed">
+                            Your proof has been deemed completely invalid. Your staked amount of{" "}
+                            <span className="font-bold text-red-300">{parseFloat(previousStakedBalance).toFixed(2)} SIN</span>{" "}
+                            has been slashed and is <span className="font-bold">permanently unrecoverable</span>.
+                          </p>
+                          <p className="text-red-300 text-xs mt-3 font-semibold">
+                            ⛔ This action cannot be reversed. Please ensure future submissions show genuine social/environmental work.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success Message - Only show if confidence >= 50% */}
+                  {result.success && result.confidence >= 50 && (
+                    <div className="bg-green-900/30 border-2 border-[#51bb0b] rounded-xl p-6 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <span className="text-3xl">✅</span>
+                        <div className="flex-1">
+                          <h4 className="text-[#51bb0b] font-bold text-lg mb-2">
+                            VALIDATION SUCCESSFUL - REWARD ADDED
+                          </h4>
+                          <p className="text-green-200 text-sm leading-relaxed">
+                            Your work has been validated! An 8% reward has been added to your staked balance.
+                            You can now claim your rewards using the "Claim Rewards" button above.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Details Grid */}
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">

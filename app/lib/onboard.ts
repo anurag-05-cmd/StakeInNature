@@ -18,7 +18,7 @@ export const onboard = Onboard({
   wallets: [injected, walletConnect],
   chains: [
     {
-      id: "0x20C49",
+      id: "0x413",
       token: "BDAG",
       label: "BDAG Testnet",
       rpcUrl: "https://rpc.awakening.bdagscan.com",

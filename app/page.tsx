@@ -61,6 +61,10 @@ export default function Home() {
       setUserData(data);
     } catch (error) {
       console.error("Failed to fetch user data:", error);
+      setClaimStatus({
+        success: false,
+        message: "Failed to load user data. Please refresh.",
+      });
     }
   };
 
@@ -72,6 +76,10 @@ export default function Home() {
         return;
       } catch (error) {
         console.error("Failed to connect wallet:", error);
+        setClaimStatus({
+          success: false,
+          message: "Failed to connect wallet",
+        });
         return;
       }
     }
@@ -143,42 +151,94 @@ export default function Home() {
     setClaimStatus({});
 
     try {
+      // Dynamic imports with error handling
       const { ethers } = await import("ethers");
-      const wallets = onboard.state.select("wallets");
-      const currentWallets = await firstValueFrom(wallets);
       
-      if (!currentWallets || currentWallets.length === 0) {
-        throw new Error("No wallet connected");
-      }
+      const walletSetup = await import("./lib/walletSetup");
+      const contractHelper = await import("./lib/contractHelper");
+      
+      const currentWallets = onboard.state.get().wallets;
+      
+      // if (!currentWallets) {
+      //   throw new Error("No wallet connected");
+      // }
 
       console.log("Setting up provider and signer...");
       const provider = currentWallets[0].provider;
+      
+      if (!provider) {
+        throw new Error("Provider not available");
+      }
+      
+      // Ensure we're on the correct network before staking
+      console.log("Checking network...");
+      const onCorrectNetwork = await walletSetup.isOnBDAGNetwork(provider);
+      
+      if (!onCorrectNetwork) {
+        console.log("Switching to BDAG network...");
+        setClaimStatus({
+          success: false,
+          message: "Switching to BDAG Testnet...",
+        });
+        
+        const switched = await walletSetup.switchToBDAGNetwork(provider);
+        console.log(switched);
+        if (!switched) {
+          throw new Error("Please switch to BDAG Testnet manually to stake");
+        }
+        
+        console.log("Network switched successfully");
+        
+        // Wait a bit for network to stabilize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      console.log("Creating ethers provider...");
       const ethersProvider = new ethers.BrowserProvider(provider);
       const signer = await ethersProvider.getSigner();
       
-      console.log("Signer address:", await signer.getAddress());
+      const signerAddress = await signer.getAddress();
+      console.log("Signer address:", signerAddress);
+      
+      if (signerAddress.toLowerCase() !== connectedAddress.toLowerCase()) {
+        throw new Error("Wallet address mismatch");
+      }
 
-      // Import contract helper
-      const { getContractWithSigner } = await import("./lib/contractHelper");
+      console.log(`Staking ${stakeAmount} SIN...`);
       
-      const contract = getContractWithSigner(signer);
-      const amountInWei = ethers.parseEther(stakeAmount);
+      setClaimStatus({
+        success: false,
+        message: "Preparing transaction...",
+      });
+
+      const beforeStaked = await contractHelper.getStakedBalance(connectedAddress);
+      console.log(`Current staked balance: ${beforeStaked} SIN`);
+
+      setClaimStatus({
+        success: false,
+        message: "Please confirm the transaction in your wallet...",
+      });
+
+      const tx = await contractHelper.stakeTokens(signer, stakeAmount);
       
-      console.log(`Staking ${ethers.formatEther(amountInWei)} SIN...`);
+      if (!tx) {
+        throw new Error("Transaction failed");
+      }
       
-      // Check current staked balance
-      const currentStaked = await contract.getStakedBalance(connectedAddress);
-      console.log(`Current staked balance: ${ethers.formatEther(currentStaked)} SIN`);
-      
-      const tx = await contract.stake(amountInWei);
       console.log("Transaction sent:", tx.hash);
       
+      setClaimStatus({
+        success: false,
+        message: "Transaction submitted. Waiting for confirmation...",
+      });
+
+      // Wait for transaction confirmation
       await tx.wait();
-      console.log("Transaction confirmed!");
       
-      // Verify new balance
-      const newStaked = await contract.getStakedBalance(connectedAddress);
-      console.log(`New staked balance: ${ethers.formatEther(newStaked)} SIN`);
+      console.log("Transaction confirmed");
+
+      const afterStaked = await contractHelper.getStakedBalance(connectedAddress);
+      console.log(`New staked balance: ${afterStaked} SIN`);
 
       setClaimStatus({
         success: true,
@@ -187,10 +247,25 @@ export default function Home() {
 
       // Refresh user data
       await fetchUserData();
-    } catch (error) {
+      
+    } catch (error: any) {
+      console.error("Staking error:", error);
+      
+      let errorMessage = "Failed to stake tokens";
+      
+      if (error.code === "ACTION_REJECTED" || error.code === 4001) {
+        errorMessage = "Transaction rejected by user";
+      } else if (error.message?.includes("insufficient funds")) {
+        errorMessage = "Insufficient funds for gas";
+      } else if (error.message?.includes("network")) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setClaimStatus({
         success: false,
-        message: error instanceof Error ? error.message : "Failed to stake tokens",
+        message: errorMessage,
       });
     } finally {
       setIsStaking(false);
@@ -198,14 +273,16 @@ export default function Home() {
   };
 
   // Check if user can access validator (has >= 900 SIN staked)
-  const canAccessValidator =
-    userData && parseFloat(userData.stakedBalance) >= 900;
+  const canAccessValidator = !!(
+    userData && parseFloat(userData.stakedBalance) >= 900
+  );
   
   // Check if user has already claimed (has any token balance or staked balance)
-  const hasAlreadyClaimed =
+  const hasAlreadyClaimed = !!(
     userData &&
     (parseFloat(userData.tokenBalance) > 0 ||
-      parseFloat(userData.stakedBalance) > 0);
+      parseFloat(userData.stakedBalance) > 0)
+  );
 
   return (
     <div className="relative min-h-screen">

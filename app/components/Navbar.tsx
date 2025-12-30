@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { firstValueFrom } from "rxjs";
 import { onboard } from "../lib/onboard";
 import { setupWalletForBDAG } from "../lib/walletSetup";
@@ -12,6 +12,8 @@ export default function Navbar() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [stakedBalance, setStakedBalance] = useState<string>("0");
+  const hasSetupWallet = useRef(false);
+  const isManualConnect = useRef(false);
 
   useEffect(() => {
     // Subscribe to wallet changes
@@ -22,24 +24,28 @@ export default function Navbar() {
         const address = wallet.accounts?.[0]?.address;
         setConnectedAddress(address || null);
 
-        // Setup BDAG network and SIN token when wallet connects
-        if (address && wallet.provider) {
+        // Only setup BDAG network and SIN token on manual connect, not auto-reconnect
+        if (address && wallet.provider && isManualConnect.current && !hasSetupWallet.current) {
           try {
+            hasSetupWallet.current = true;
             await setupWalletForBDAG(wallet.provider);
           } catch (error) {
             console.error("Failed to setup wallet:", error);
+          } finally {
+            isManualConnect.current = false;
           }
         }
       } else {
         setConnectedAddress(null);
         setStakedBalance("0");
+        hasSetupWallet.current = false;
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch staked balance when wallet connects
+  // Fetch staked balance when wallet connects and periodically refresh
   useEffect(() => {
     const fetchStakedBalance = async () => {
       if (!connectedAddress) return;
@@ -60,16 +66,24 @@ export default function Navbar() {
       }
     };
 
+    // Fetch immediately
     fetchStakedBalance();
+
+    // Also refresh every 3 seconds to catch updates after staking
+    const interval = setInterval(fetchStakedBalance, 3000);
+
+    return () => clearInterval(interval);
   }, [connectedAddress]);
 
   const handleConnectWallet = async () => {
     setIsConnecting(true);
+    isManualConnect.current = true;
     try {
       await onboard.connectWallet();
       setShowDropdown(false);
     } catch (error) {
       console.error("Failed to connect wallet:", error);
+      isManualConnect.current = false;
     } finally {
       setIsConnecting(false);
     }

@@ -1,5 +1,5 @@
 export const BDAG_TESTNET = {
-  chainId: "0x20C49", // 134217 in decimal
+  chainId: "0x413", // 1043 in decimal
   chainName: "BDAG Testnet",
   nativeCurrency: {
     name: "BDAG",
@@ -16,6 +16,22 @@ export const SIN_TOKEN = {
   decimals: 18,
   image: "/logo-black.png",
 };
+
+// LocalStorage key for tracking token addition
+const SIN_TOKEN_ADDED_KEY = "sin_token_added";
+
+/**
+ * Check if wallet is already on BDAG network
+ */
+export async function isOnBDAGNetwork(provider: any): Promise<boolean> {
+  try {
+    const chainId = await provider.request({ method: "eth_chainId" });
+    return chainId === BDAG_TESTNET.chainId;
+  } catch (error) {
+    console.error("Error checking network:", error);
+    return false;
+  }
+}
 
 /**
  * Add BDAG testnet network to wallet
@@ -64,9 +80,31 @@ export async function switchToBDAGNetwork(provider: any): Promise<boolean> {
 }
 
 /**
- * Add SIN token to wallet
+ * Check if SIN token was already added (tracked in localStorage)
+ */
+export function wasTokenAlreadyAdded(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(SIN_TOKEN_ADDED_KEY) === "true";
+}
+
+/**
+ * Mark SIN token as added in localStorage
+ */
+export function markTokenAsAdded(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SIN_TOKEN_ADDED_KEY, "true");
+}
+
+/**
+ * Add SIN token to wallet (only if not already added)
  */
 export async function addSINToken(provider: any): Promise<boolean> {
+  // Skip if token was already added before
+  if (wasTokenAlreadyAdded()) {
+    console.log("SIN token was already added previously, skipping prompt");
+    return true;
+  }
+
   try {
     const wasAdded = await provider.request({
       method: "wallet_watchAsset",
@@ -81,10 +119,15 @@ export async function addSINToken(provider: any): Promise<boolean> {
       },
     });
 
+    if (wasAdded) {
+      markTokenAsAdded();
+    }
     return wasAdded;
   } catch (error: any) {
     if (error.code === 4001) {
       console.log("User rejected token addition");
+      // Still mark as handled so we don't prompt again
+      markTokenAsAdded();
       return false;
     }
     console.error("Error adding SIN token:", error);
@@ -94,14 +137,24 @@ export async function addSINToken(provider: any): Promise<boolean> {
 
 /**
  * Setup BDAG network and SIN token after wallet connection
+ * Only prompts if necessary (network not connected or token not added)
  */
 export async function setupWalletForBDAG(provider: any): Promise<void> {
   try {
-    // First, switch to or add BDAG network
-    const networkAdded = await switchToBDAGNetwork(provider);
+    // Check if already on BDAG network
+    const alreadyOnBDAG = await isOnBDAGNetwork(provider);
     
-    if (networkAdded) {
-      // Then add SIN token
+    if (!alreadyOnBDAG) {
+      // Only switch/add network if not already connected
+      const networkAdded = await switchToBDAGNetwork(provider);
+      if (!networkAdded) {
+        console.log("Network switch was rejected or failed");
+        return;
+      }
+    }
+    
+    // Only prompt for token if not already added
+    if (!wasTokenAlreadyAdded()) {
       await addSINToken(provider);
     }
   } catch (error) {

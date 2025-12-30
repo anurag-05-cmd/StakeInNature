@@ -1,7 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
+import { ethers } from "ethers";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY;
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://rpc.awakening.bdagscan.com";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+
 console.log("GEMINI_API_KEY:", GEMINI_API_KEY);
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -98,6 +103,52 @@ Be RUTHLESSLY STRICT. Most images should fail (confidence < 50). Only accept ima
     // Determine success based on confidence > 50%
     const success = result.confidence > 50;
     console.log({result})
+
+    // Get user address from form data
+    const userAddress = formData.get("userAddress") as string;
+    
+    if (!userAddress) {
+      return NextResponse.json(
+        { error: "User address is required" },
+        { status: 400 }
+      );
+    }
+
+    // Call contract function based on confidence score
+    try {
+      if (!ADMIN_PRIVATE_KEY || !CONTRACT_ADDRESS) {
+        throw new Error("Admin credentials not configured");
+      }
+
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
+      
+      // Import contract ABI functions
+      const CONTRACT_ABI = [
+        "function slashUser(address user) external",
+        "function validateUser(address user) external",
+      ];
+      
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, adminWallet);
+
+      if (result.confidence < 50) {
+        // Slash user for low confidence
+        console.log(`Slashing user ${userAddress} (confidence: ${result.confidence}%)`);
+        const tx = await contract.slashUser(userAddress);
+        await tx.wait();
+        console.log(`User ${userAddress} slashed successfully`);
+      } else {
+        // Validate user for high confidence
+        console.log(`Validating user ${userAddress} (confidence: ${result.confidence}%)`);
+        const tx = await contract.validateUser(userAddress);
+        await tx.wait();
+        console.log(`User ${userAddress} validated successfully with 8% reward`);
+      }
+    } catch (contractError: any) {
+      console.error("Contract interaction error:", contractError);
+      // Don't fail the response if contract call fails, just log it
+      // The UI will still show the validation result
+    }
 
     return NextResponse.json({
       success,
