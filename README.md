@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![SIN Logo](StakeInNature\public\logo-green.png)
+![SIN Logo](public/logo-green.png)
 
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.2-000000?logo=next.js)](https://nextjs.org/)
