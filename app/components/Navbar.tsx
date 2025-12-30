@@ -1,16 +1,115 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { firstValueFrom } from "rxjs";
+import { onboard } from "../lib/onboard";
+import { setupWalletForBDAG } from "../lib/walletSetup";
 
 export default function Navbar() {
   const [activeLink, setActiveLink] = useState("Home");
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [stakedBalance, setStakedBalance] = useState<string>("0");
+
+  useEffect(() => {
+    // Subscribe to wallet changes
+    const wallets = onboard.state.select("wallets");
+    const subscription = wallets.subscribe(async (connectedWallets) => {
+      if (connectedWallets && connectedWallets.length > 0) {
+        const wallet = connectedWallets[0];
+        const address = wallet.accounts?.[0]?.address;
+        setConnectedAddress(address || null);
+
+        // Setup BDAG network and SIN token when wallet connects
+        if (address && wallet.provider) {
+          try {
+            await setupWalletForBDAG(wallet.provider);
+          } catch (error) {
+            console.error("Failed to setup wallet:", error);
+          }
+        }
+      } else {
+        setConnectedAddress(null);
+        setStakedBalance("0");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch staked balance when wallet connects
+  useEffect(() => {
+    const fetchStakedBalance = async () => {
+      if (!connectedAddress) return;
+
+      try {
+        const response = await fetch("/api/contract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "getStakedBalance",
+            userAddress: connectedAddress,
+          }),
+        });
+        const data = await response.json();
+        setStakedBalance(data.stakedBalance || "0");
+      } catch (error) {
+        console.error("Failed to fetch staked balance:", error);
+      }
+    };
+
+    fetchStakedBalance();
+  }, [connectedAddress]);
+
+  const handleConnectWallet = async () => {
+    setIsConnecting(true);
+    try {
+      await onboard.connectWallet();
+      setShowDropdown(false);
+    } catch (error) {
+      console.error("Failed to connect wallet:", error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnectWallet = async () => {
+    try {
+      const wallets = onboard.state.select("wallets");
+      const currentWallets = await firstValueFrom(wallets);
+      
+      if (currentWallets && currentWallets.length > 0) {
+        const walletLabel = currentWallets[0].label;
+        await onboard.disconnectWallet({ label: walletLabel });
+        
+        // Force state update
+        setConnectedAddress(null);
+        setShowDropdown(false);
+        
+        // Log for debugging
+        console.log(`Wallet ${walletLabel} disconnected successfully`);
+      }
+    } catch (error) {
+      console.error("Failed to disconnect wallet:", error);
+      // Still reset UI even if there's an error
+      setConnectedAddress(null);
+      setShowDropdown(false);
+    }
+  };
+
+  const displayAddress = connectedAddress
+    ? `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}`
+    : null;
+
+  const hasMinimumStake = parseFloat(stakedBalance) >= 900;
 
   const navLinks = [
-    { label: "Home", href: "/" },
-    { label: "SIN Validator", href: "/validate" },
-    { label: "Faucet", href: "#" },
-    { label: "Rewards", href: "#" },
+    { label: "Home", href: "/", disabled: false },
+    { label: "SIN Validator", href: "/validate", disabled: !hasMinimumStake },
+    { label: "Faucet", href: "#", disabled: false },
+    { label: "Rewards", href: "#", disabled: false },
   ];
 
   return (
@@ -35,10 +134,20 @@ export default function Navbar() {
           {navLinks.map((link) => (
             <a
               key={link.label}
-              href={link.href}
-              onClick={() => setActiveLink(link.label)}
-              className={`nav-link text-white font-medium text-sm tracking-wide transition-colors duration-200 hover:text-[#51bb0b] ${
-                activeLink === link.label ? "text-[#51bb0b]" : ""
+              href={link.disabled ? "#" : link.href}
+              onClick={(e) => {
+                if (link.disabled) {
+                  e.preventDefault();
+                } else {
+                  setActiveLink(link.label);
+                }
+              }}
+              className={`nav-link font-medium text-sm tracking-wide transition-colors duration-200 ${
+                link.disabled
+                  ? "text-white/30 cursor-not-allowed"
+                  : "text-white hover:text-[#51bb0b]"
+              } ${
+                activeLink === link.label && !link.disabled ? "text-[#51bb0b]" : ""
               }`}
             >
               {link.label}
@@ -46,10 +155,43 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right side - Connect Wallet button */}
-        <button className="connect-wallet-btn bg-white text-[#51bb0b] font-semibold text-sm tracking-wide px-6 py-2.5 rounded-full transition-all duration-300 hover:bg-[#51bb0b] hover:text-white hover:shadow-lg hover:scale-105 whitespace-nowrap border border-transparent hover:border-white/20">
-          Connect Wallet
-        </button>
+        {/* Right side - Connect Wallet button / Wallet dropdown */}
+        <div className="relative">
+          {!connectedAddress ? (
+            <button
+              onClick={handleConnectWallet}
+              disabled={isConnecting}
+              className="connect-wallet-btn bg-white text-[#51bb0b] font-semibold text-sm tracking-wide px-6 py-2.5 rounded-full transition-all duration-300 hover:bg-[#51bb0b] hover:text-white hover:shadow-lg hover:scale-105 whitespace-nowrap border border-transparent hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isConnecting ? "Connecting..." : "Connect Wallet"}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="connect-wallet-btn bg-white text-[#51bb0b] font-semibold text-sm tracking-wide px-6 py-2.5 rounded-full transition-all duration-300 hover:bg-[#51bb0b] hover:text-white hover:shadow-lg hover:scale-105 whitespace-nowrap border border-transparent hover:border-white/20 flex items-center gap-2"
+              >
+                <span className="w-2 h-2 bg-[#51bb0b] rounded-full inline-block"></span>
+                {displayAddress}
+              </button>
+
+              {/* Dropdown Menu */}
+              {showDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-white/20 rounded-xl shadow-lg glass-navbar overflow-hidden z-50">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDisconnectWallet();
+                    }}
+                    className="w-full px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-colors duration-200 font-semibold text-sm flex items-center gap-2"
+                  >
+                    <span>🔌</span> Disconnect Wallet
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </nav>
   );

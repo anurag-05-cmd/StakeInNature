@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Image from "next/image";
+import { onboard } from "../lib/onboard";
+import { firstValueFrom } from "rxjs";
 
 interface ValidationResult {
   success: boolean;
@@ -18,6 +20,77 @@ export default function ValidatePage() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [error, setError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
+  const [stakedBalance, setStakedBalance] = useState<string>("0");
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+
+  // Check wallet connection and staked balance
+  useEffect(() => {
+    const wallets = onboard.state.select("wallets");
+    const subscription = wallets.subscribe((connectedWallets) => {
+      if (connectedWallets && connectedWallets.length > 0) {
+        const address = connectedWallets[0].accounts?.[0]?.address;
+        setConnectedAddress(address || null);
+      } else {
+        setConnectedAddress(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Check if user has minimum stake
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (!connectedAddress) {
+        setIsCheckingAccess(false);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/contract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "getStakedBalance",
+            userAddress: connectedAddress,
+          }),
+        });
+        const data = await response.json();
+        setStakedBalance(data.stakedBalance || "0");
+        setIsCheckingAccess(false);
+
+        // Redirect if doesn't have minimum stake
+        if (parseFloat(data.stakedBalance || "0") < 900) {
+          window.location.href = "/";
+        }
+      } catch (error) {
+        console.error("Failed to check staked balance:", error);
+        setIsCheckingAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [connectedAddress]);
+
+  // Show loading or redirect if no access
+  if (!connectedAddress || isCheckingAccess) {
+    return (
+      <div className="relative min-h-screen">
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-transparent z-0" />
+        <Navbar />
+        <main className="relative z-10 flex items-center justify-center min-h-screen">
+          <div className="text-white text-2xl">
+            {!connectedAddress ? "Please connect your wallet..." : "Checking access..."}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (parseFloat(stakedBalance) < 900) {
+    return null; // Will redirect
+  }
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
