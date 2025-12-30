@@ -1,5 +1,21 @@
 # Stake in Nature (SIN)
 
+<div align="center">
+
+![SIN Logo](StakeInNature\public\logo-green.png)
+
+
+[![Next.js](https://img.shields.io/badge/Next.js-15.5.2-000000?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Solidity](https://img.shields.io/badge/Solidity-^0.8.19-363636?logo=solidity)](https://soliditylang.org/)
+[![BlockDAG](https://img.shields.io/badge/BlockDAG-Testnet-green)](https://awakening.bdagscan.com/)
+
+🌐 **[Live Demo](https://sin.expose.software)**
+
+</div>
+
+---
+
 A **blockchain-based staking and verification platform** where users stake crypto assets on real-world tasks, submit proof via images, and receive rewards based on **AI-powered authenticity and plagiarism validation**. The platform uses **Ethereum testnet**, **Solidity smart contracts**, and a native utility token called **SIN Coin**.
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
