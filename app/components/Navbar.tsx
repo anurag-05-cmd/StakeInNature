@@ -89,28 +89,9 @@ export default function Navbar() {
     }
   };
 
-  const handleDisconnectWallet = async () => {
-    try {
-      const wallets = onboard.state.select("wallets");
-      const currentWallets = await firstValueFrom(wallets);
-      
-      if (currentWallets && currentWallets.length > 0) {
-        const walletLabel = currentWallets[0].label;
-        await onboard.disconnectWallet({ label: walletLabel });
-        
-        // Log for debugging
-        console.log(`Wallet ${walletLabel} disconnected successfully`);
-      }
-      
-      // Clear all localStorage and reload
-      localStorage.clear();
-      window.location.reload();
-    } catch (error) {
-      console.error("Failed to disconnect wallet:", error);
-      // Still clear localStorage and reload even if there's an error
-      localStorage.clear();
-      window.location.reload();
-    }
+  const handleDisconnectWallet = () => {
+    localStorage.clear();
+    window.location.reload();
   };
 
   const displayAddress = connectedAddress
@@ -122,7 +103,7 @@ export default function Navbar() {
   const navLinks = [
     { label: "Home", href: "/", disabled: false },
     { label: "SIN Validator", href: "/validate", disabled: !hasMinimumStake },
-    { label: "Faucet", href: "#", disabled: false },
+    { label: "Faucet", href: "/faucet", disabled: false },
     { label: "Rewards", href: "#", disabled: false },
   ];
 
